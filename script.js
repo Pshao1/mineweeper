@@ -1,23 +1,18 @@
-let rows = 10; // 默认行数
-let cols = 10; // 默认列数
-let mines = 20; // 默认地雷数量
-let isFirstClick = true; // 标志是否是第一次点击
-let grid = []; // 网格数据
-let isHellMode = false; // 是否是地狱模式
+let rows = 10; // Default number of rows
+let cols = 10; // Default number of columns
+let mines = 20; // Default number of mines
+let isFirstClick = true; // Flag to check if it's the first click
+let grid = []; // Grid data
+let isHellMode = false; // Is Hell Mode active
 
 const gameContainer = document.getElementById('game-container');
 const difficultySelect = document.getElementById('difficulty');
 
-let longPressTimeout = null; // 用于判断长按
-const LONG_PRESS_DURATION = 500; // 长按时间（毫秒）
+const LONG_PRESS_DURATION = 500; // Long press duration in milliseconds
 
-// 创建网格
+// Create the grid
 function createGrid(cellSize) {
-
-    cell.style.userSelect = 'none'; // 禁止用户选择文本
-    cell.style.webkitUserSelect = 'none'; // 兼容 Safari
-
-    // 清空游戏容器和网格数据
+    // Clear the game container and grid data
     gameContainer.innerHTML = "";
     grid = [];
 
@@ -29,26 +24,29 @@ function createGrid(cellSize) {
             cell.dataset.row = i;
             cell.dataset.col = j;
 
-            // 设置单元格的尺寸和样式
+            // Set cell dimensions and styles
             cell.style.width = `${cellSize}px`;
             cell.style.height = `${cellSize}px`;
-            cell.style.lineHeight = `${cellSize}px`; // 使内容垂直居中
-            cell.style.fontSize = `${Math.max(cellSize * 0.4, 12)}px`; // 字体大小，最小 12px
+            cell.style.lineHeight = `${cellSize}px`; // Vertical centering
+            cell.style.fontSize = `${Math.max(cellSize * 0.4, 12)}px`; // Font size, min 12px
+            cell.style.userSelect = 'none'; // Prevent text selection
+            cell.style.webkitUserSelect = 'none'; // For Safari
+            cell.style.webkitTouchCallout = 'none'; // For iOS Safari
 
-            // 绑定事件监听
+            // Bind event listeners
             bindCellEvents(cell);
 
-            // 将单元格添加到容器
+            // Add cell to the container
             gameContainer.appendChild(cell);
 
-            // 初始化网格数据
+            // Initialize grid data
             rowArray.push({ isMine: false, isRevealed: false, mineCount: 0 });
         }
         grid.push(rowArray);
     }
 }
 
-// 随机布置地雷
+// Randomly place mines
 function placeMines() {
     let placedMines = 0;
     while (placedMines < mines) {
@@ -62,10 +60,10 @@ function placeMines() {
     }
 }
 
-// 调整地雷布局，确保初次点击和其周围区域安全
+// Adjust mine layout to ensure the first click and surrounding area are safe
 function adjustMines(excludeRow, excludeCol) {
     if (rows === 1 && cols === 1) {
-        // 地狱模式，直接布置唯一的地雷
+        // Hell Mode, place the only mine
         grid[0][0].isMine = true;
         return;
     }
@@ -99,7 +97,7 @@ function adjustMines(excludeRow, excludeCol) {
     }
 }
 
-// 计算每个格子周围的地雷数量
+// Calculate the number of mines around each cell
 function calculateNumbers() {
     const directions = [
         [-1, -1], [-1, 0], [-1, 1],
@@ -128,9 +126,9 @@ function calculateNumbers() {
     }
 }
 
-// 长按事件处理（标记地雷）
+// Handle marking/unmarking mines
 function handleLongPress(event) {
-    event.preventDefault(); // 阻止默认行为（如上下文菜单）
+    event.preventDefault(); // Prevent default behavior
     const cell = event.target;
     const row = parseInt(cell.dataset.row);
     const col = parseInt(cell.dataset.col);
@@ -140,53 +138,70 @@ function handleLongPress(event) {
         return;
     }
 
-    if (grid[row][col].isRevealed) return; // 已经被揭开的格子不处理
+    if (grid[row][col].isRevealed) return; // Already revealed cells are not processed
 
-    // 切换标记状态
+    // Toggle mark state
     if (cell.textContent === "🚩") {
-        cell.textContent = ""; // 取消标记
+        cell.textContent = ""; // Unmark
     } else {
-        cell.textContent = "🚩"; // 添加标记
+        cell.textContent = "🚩"; // Mark
     }
 }
 
 function bindCellEvents(cell) {
-    let cellLongPressTimeout = null; // 用于检测长按事件
-
-    // 监听单击事件
+    // Bind click event
     cell.addEventListener('click', handleCellClick);
 
-    // 监听右键事件（防止误触）
+    // Handle right-click for PC browsers
     cell.addEventListener('contextmenu', (event) => {
         event.preventDefault();
+        handleLongPress(event);
     });
 
-    cell.addEventListener('touchstart', (event) => {
-        event.preventDefault(); // 阻止默认行为，防止弹出菜单
-        cellLongPressTimeout = setTimeout(() => {
-            handleLongPress(event);
-        }, LONG_PRESS_DURATION);
-    });
+    // Use pointer events for better cross-device compatibility
+    cell.addEventListener('pointerdown', handlePointerDown, { passive: false });
+    cell.addEventListener('pointerup', handlePointerUp, { passive: false });
+    cell.addEventListener('pointercancel', handlePointerCancel, { passive: false });
+    cell.addEventListener('pointermove', handlePointerMove, { passive: false });
+}
 
-    // 移动端触摸结束，清除长按检测
-    cell.addEventListener('touchend', () => {
-        event.preventDefault();
-        if (cellLongPressTimeout) {
-            clearTimeout(cellLongPressTimeout);
-            cellLongPressTimeout = null;
-        }
-    });
-    // 阻止 iOS 上的触摸长按菜单
-cell.addEventListener('touchmove', (event) => {
+function handlePointerDown(event) {
     event.preventDefault();
-});
+    const cell = event.target;
+    cell.longPressTimeout = setTimeout(() => {
+        handleLongPress(event);
+    }, LONG_PRESS_DURATION);
+}
+
+function handlePointerUp(event) {
+    const cell = event.target;
+    if (cell.longPressTimeout) {
+        clearTimeout(cell.longPressTimeout);
+        cell.longPressTimeout = null;
+    }
+}
+
+function handlePointerCancel(event) {
+    const cell = event.target;
+    if (cell.longPressTimeout) {
+        clearTimeout(cell.longPressTimeout);
+        cell.longPressTimeout = null;
+    }
+}
+
+function handlePointerMove(event) {
+    const cell = event.target;
+    if (cell.longPressTimeout) {
+        clearTimeout(cell.longPressTimeout);
+        cell.longPressTimeout = null;
+    }
 }
 
 function triggerExplosion(cell) {
     cell.textContent = "💣";
     cell.style.backgroundColor = "red";
     setTimeout(() => {
-        alert("💥 菜，就多练！！");
+        alert("💥 You lost! Try again!");
         endGame(false);
     }, 100);
 }
@@ -194,16 +209,16 @@ function triggerExplosion(cell) {
 function handleCellClick(event) {
     const cell = event.target;
 
-    // 在地狱模式下，无论点击什么都爆炸
-    if (isHellMode) {
-        triggerExplosion(cell);
-        return;
-    }
-
-    // 避免长按时触发普通点击
+    // If the long press timeout is active, cancel it
     if (cell.longPressTimeout) {
         clearTimeout(cell.longPressTimeout);
         cell.longPressTimeout = null;
+        return;
+    }
+
+    // In Hell Mode, any click triggers an explosion
+    if (isHellMode) {
+        triggerExplosion(cell);
         return;
     }
 
@@ -214,12 +229,12 @@ function handleCellClick(event) {
         isFirstClick = false;
 
         if (rows === 1 && cols === 1) {
-            // 地狱模式，直接布置唯一的地雷
+            // Hell Mode, place the only mine
             grid[0][0].isMine = true;
         } else {
-            adjustMines(row, col); // 第一次点击重新布置地雷
+            adjustMines(row, col); // Re-adjust mines after the first click
             calculateNumbers();
-            revealSafeArea(row, col); // 排除安全区域
+            revealSafeArea(row, col); // Reveal safe area
         }
     }
 
@@ -231,7 +246,7 @@ function handleCellClick(event) {
         cell.style.backgroundColor = "red";
 
         setTimeout(() => {
-            alert("💥 菜，就多练！！");
+            alert("💥 You lost! Try again!");
             endGame(false);
         }, 100);
     } else {
@@ -244,10 +259,10 @@ function handleCellClick(event) {
     }
 }
 
-// 排除初次点击后的安全区域
+// Reveal safe area after the first click
 function revealSafeArea(row, col) {
     if (rows === 1 && cols === 1) {
-        // 地狱模式，不进行安全区域排除
+        // Hell Mode, no safe area to reveal
         return;
     }
 
@@ -289,7 +304,7 @@ function revealSafeArea(row, col) {
     }
 }
 
-// 自动翻开周围格子
+// Automatically reveal adjacent cells
 function revealAdjacentCells(row, col) {
     const directions = [
         [-1, -1], [-1, 0], [-1, 1],
@@ -313,7 +328,7 @@ function revealAdjacentCells(row, col) {
     });
 }
 
-// 检查是否胜利
+// Check for a win
 function checkWin() {
     let revealedCells = 0;
     let totalCells = rows * cols;
@@ -325,32 +340,34 @@ function checkWin() {
     }
 
     if (revealedCells === totalCells - mines) {
-        alert("🎉 呦，有点东西！！");
+        alert("🎉 Congratulations, you won!");
         endGame(true);
     }
 }
 
-// 结束游戏
+// End the game
 function endGame(isWin) {
     const cells = document.querySelectorAll('.cell');
     cells.forEach((cell) => {
         cell.removeEventListener('click', handleCellClick);
         cell.removeEventListener('contextmenu', handleLongPress);
-        cell.removeEventListener('touchstart', handleLongPress);
-        cell.removeEventListener('touchend', handleLongPress);
+        cell.removeEventListener('pointerdown', handlePointerDown);
+        cell.removeEventListener('pointerup', handlePointerUp);
+        cell.removeEventListener('pointercancel', handlePointerCancel);
+        cell.removeEventListener('pointermove', handlePointerMove);
     });
 }
 
-// 重置游戏
+// Reset the game
 function resetGame() {
     const difficulty = difficultySelect.value;
 
-    // 根据难度调整参数
+    // Adjust parameters based on difficulty
     if (difficulty === 'easy') {
         rows = 10;
         cols = 10;
         mines = 20;
-        gameContainer.classList.remove('single-cell'); // 移除 Hell 模式样式
+        gameContainer.classList.remove('single-cell'); // Remove Hell Mode styling
         isHellMode = false;
     } else if (difficulty === 'medium') {
         rows = 20;
@@ -359,7 +376,7 @@ function resetGame() {
         gameContainer.classList.remove('single-cell');
         isHellMode = false;
     } else if (difficulty === 'hard') {
-        rows = 30; // 修改为 30x30 的网格
+        rows = 30;
         cols = 30;
         mines = 200;
         gameContainer.classList.remove('single-cell');
@@ -367,51 +384,51 @@ function resetGame() {
     } else if (difficulty === 'hell') {
         rows = 1;
         cols = 1;
-        mines = 1; // 1x1 的地狱模式，100% 中雷
-        gameContainer.classList.add('single-cell'); // 添加 Hell 模式样式
+        mines = 1; // 1x1 Hell Mode, 100% chance of hitting a mine
+        gameContainer.classList.add('single-cell'); // Add Hell Mode styling
         isHellMode = true;
     }
 
-    // 清空游戏容器和网格数据
+    // Clear the game container and grid data
     gameContainer.innerHTML = "";
     grid = [];
     isFirstClick = true;
 
-    // 动态计算单元格尺寸
-    const maxContainerWidth = window.innerWidth - 40; // 考虑一些边距
-    const maxContainerHeight = window.innerHeight - 200; // 考虑顶部和底部的空间
+    // Dynamically calculate cell size
+    const maxContainerWidth = window.innerWidth - 40; // Account for margins
+    const maxContainerHeight = window.innerHeight - 200; // Account for top and bottom space
     let cellSize = Math.floor(Math.min(maxContainerWidth / cols, maxContainerHeight / rows));
 
-    // 设置最小单元格尺寸，避免过小
+    // Set minimum cell size to avoid being too small
     if (cellSize < 15) cellSize = 15;
 
-    // 设置游戏容器的宽高和网格模板
+    // Set game container dimensions and grid template
     if (difficulty === 'hell') {
-        // 特殊处理 Hell 模式
+        // Special handling for Hell Mode
         gameContainer.style.width = `${cellSize}px`;
         gameContainer.style.height = `${cellSize}px`;
         gameContainer.style.gridTemplateColumns = `repeat(${cols}, ${cellSize}px)`;
-        gameContainer.style.overflow = 'hidden'; // 禁止滚动
+        gameContainer.style.overflow = 'hidden'; // Disable scrolling
     } else {
         gameContainer.style.width = `${cellSize * cols}px`;
         gameContainer.style.height = `${cellSize * rows}px`;
         gameContainer.style.gridTemplateColumns = `repeat(${cols}, ${cellSize}px)`;
-        gameContainer.style.overflow = 'auto'; // 可滚动
+        gameContainer.style.overflow = 'auto'; // Enable scrolling
     }
 
-    // 重新初始化游戏
+    // Re-initialize the game
     initGame(cellSize);
 }
 
-// 初始化游戏
+// Initialize the game
 function initGame(cellSize) {
     createGrid(cellSize);
     placeMines();
     calculateNumbers();
 }
 
-// 为按钮绑定事件
+// Bind the reset button event
 document.getElementById('restart-button').addEventListener('click', resetGame);
 
-// 启动游戏
+// Start the game
 resetGame();
