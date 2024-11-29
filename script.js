@@ -3,37 +3,15 @@ let cols = 10; // 默认列数
 let mines = 20; // 默认地雷数量
 let isFirstClick = true; // 标志是否是第一次点击
 let grid = []; // 网格数据
+let isHellMode = false; // 是否是地狱模式
 
 const gameContainer = document.getElementById('game-container');
 const difficultySelect = document.getElementById('difficulty');
 
-
+let longPressTimeout = null; // 用于判断长按
+const LONG_PRESS_DURATION = 500; // 长按时间（毫秒）
 
 // 创建网格
-// function createGrid(cellSize) {
-//     for (let i = 0; i < rows; i++) {
-//         let rowArray = [];
-//         for (let j = 0; j < cols; j++) {
-//             const cell = document.createElement('div');
-//             cell.classList.add('cell');
-//             cell.dataset.row = i;
-//             cell.dataset.col = j;
-
-//             // 设置单元格尺寸
-//             cell.style.width = `${cellSize}px`;
-//             cell.style.height = `${cellSize}px`;
-//             cell.style.lineHeight = `${cellSize}px`;
-//             cell.style.fontSize = `${cellSize * 0.6}px`; // 调整字体大小
-
-//             cell.addEventListener('click', handleCellClick); // 单击事件
-//             cell.addEventListener('contextmenu', handleCellLongPress); // 右键事件
-//             gameContainer.appendChild(cell);
-//             rowArray.push({ isMine: false, isRevealed: false, mineCount: 0 });
-//         }
-//         grid.push(rowArray);
-//     }
-// }
-
 function createGrid(cellSize) {
     // 清空游戏容器和网格数据
     gameContainer.innerHTML = "";
@@ -54,8 +32,7 @@ function createGrid(cellSize) {
             cell.style.fontSize = `${Math.max(cellSize * 0.4, 12)}px`; // 字体大小，最小 12px
 
             // 绑定事件监听
-            cell.addEventListener('click', handleCellClick); // 单击事件
-            cell.addEventListener('contextmenu', handleCellLongPress); // 右键事件（标记地雷）
+            bindCellEvents(cell);
 
             // 将单元格添加到容器
             gameContainer.appendChild(cell);
@@ -66,7 +43,6 @@ function createGrid(cellSize) {
         grid.push(rowArray);
     }
 }
-
 
 // 随机布置地雷
 function placeMines() {
@@ -148,8 +124,80 @@ function calculateNumbers() {
     }
 }
 
+// 长按事件处理（标记地雷）
+function handleLongPress(event) {
+    event.preventDefault(); // 阻止默认行为（如上下文菜单）
+    const cell = event.target;
+    const row = parseInt(cell.dataset.row);
+    const col = parseInt(cell.dataset.col);
+
+    if (isHellMode) {
+        triggerExplosion(cell);
+        return;
+    }
+
+    if (grid[row][col].isRevealed) return; // 已经被揭开的格子不处理
+
+    // 切换标记状态
+    if (cell.textContent === "🚩") {
+        cell.textContent = ""; // 取消标记
+    } else {
+        cell.textContent = "🚩"; // 添加标记
+    }
+}
+
+function bindCellEvents(cell) {
+    let cellLongPressTimeout = null; // 用于检测长按事件
+
+    // 监听单击事件
+    cell.addEventListener('click', handleCellClick);
+
+    // 监听右键事件（防止误触）
+    cell.addEventListener('contextmenu', (event) => {
+        event.preventDefault();
+    });
+
+    // 移动端长按支持
+    cell.addEventListener('touchstart', (event) => {
+        cellLongPressTimeout = setTimeout(() => {
+            handleCellLongPress(event);
+        }, LONG_PRESS_DURATION);
+    });
+
+    // 移动端触摸结束，清除长按检测
+    cell.addEventListener('touchend', () => {
+        if (cellLongPressTimeout) {
+            clearTimeout(cellLongPressTimeout);
+            cellLongPressTimeout = null;
+        }
+    });
+}
+
+function triggerExplosion(cell) {
+    cell.textContent = "💣";
+    cell.style.backgroundColor = "red";
+    setTimeout(() => {
+        alert("💥 菜，就多练！！");
+        endGame(false);
+    }, 100);
+}
+
 function handleCellClick(event) {
     const cell = event.target;
+
+    // 在地狱模式下，无论点击什么都爆炸
+    if (isHellMode) {
+        triggerExplosion(cell);
+        return;
+    }
+
+    // 避免长按时触发普通点击
+    if (cell.longPressTimeout) {
+        clearTimeout(cell.longPressTimeout);
+        cell.longPressTimeout = null;
+        return;
+    }
+
     const row = parseInt(cell.dataset.row);
     const col = parseInt(cell.dataset.col);
 
@@ -273,82 +321,16 @@ function checkWin() {
     }
 }
 
-// 右键标记地雷
-function handleCellLongPress(event) {
-    event.preventDefault();
-    const cell = event.target;
-    const row = parseInt(cell.dataset.row);
-    const col = parseInt(cell.dataset.col);
-
-    if (grid[row][col].isRevealed) return;
-
-    if (cell.textContent === "🚩") {
-        cell.textContent = "";
-    } else {
-        cell.textContent = "🚩";
-    }
-}
-
 // 结束游戏
 function endGame(isWin) {
     const cells = document.querySelectorAll('.cell');
     cells.forEach((cell) => {
         cell.removeEventListener('click', handleCellClick);
-        cell.removeEventListener('contextmenu', handleCellLongPress);
+        cell.removeEventListener('contextmenu', handleLongPress);
+        cell.removeEventListener('touchstart', handleLongPress);
+        cell.removeEventListener('touchend', handleLongPress);
     });
 }
-
-// // 重置游戏
-// function resetGame() {
-//     const difficulty = difficultySelect.value;
-
-//     // 根据难度调整参数
-//     if (difficulty === 'easy') {
-//         rows = 10;
-//         cols = 10;
-//         mines = 20;
-//         gameContainer.classList.remove('single-cell'); // 移除 Hell 模式样式
-//     } else if (difficulty === 'medium') {
-//         rows = 20;
-//         cols = 20;
-//         mines = 80;
-//         gameContainer.classList.remove('single-cell');
-//     } else if (difficulty === 'hard') {
-//         rows = 50;
-//         cols = 50;
-//         mines = 500;
-//         gameContainer.classList.remove('single-cell');
-//     } else if (difficulty === 'hell') {
-//         rows = 1;
-//         cols = 1;
-//         mines = 1; // 1x1 的地狱模式，100% 中雷
-//         gameContainer.classList.add('single-cell'); // 添加 Hell 模式样式
-//     }
-
-//     // 清空游戏容器和网格数据
-//     gameContainer.innerHTML = "";
-//     grid = [];
-//     isFirstClick = true;
-
-//     // 动态计算单元格尺寸
-//     let maxContainerWidth = window.innerWidth - 40; // 考虑一些边距
-//     let maxContainerHeight = window.innerHeight - 200; // 考虑顶部和底部的空间
-//     let cellSize = Math.floor(Math.min(maxContainerWidth / cols, maxContainerHeight / rows));
-
-//     // 设置最小单元格尺寸，避免过小
-//     if (cellSize < 15) cellSize = 15;
-
-//     // 设置游戏容器的宽高和网格模板
-//     gameContainer.style.width = `${cellSize * cols}px`;
-//     gameContainer.style.height = `${cellSize * rows}px`;
-//     gameContainer.style.gridTemplateColumns = `repeat(${cols}, ${cellSize}px)`;
-
-//     // 设置游戏容器可滚动
-//     gameContainer.style.overflow = 'auto';
-
-//     // 重新初始化游戏
-//     initGame(cellSize);
-// }
 
 // 重置游戏
 function resetGame() {
@@ -360,21 +342,25 @@ function resetGame() {
         cols = 10;
         mines = 20;
         gameContainer.classList.remove('single-cell'); // 移除 Hell 模式样式
+        isHellMode = false;
     } else if (difficulty === 'medium') {
         rows = 20;
         cols = 20;
         mines = 80;
         gameContainer.classList.remove('single-cell');
+        isHellMode = false;
     } else if (difficulty === 'hard') {
         rows = 30; // 修改为 30x30 的网格
         cols = 30;
         mines = 200;
         gameContainer.classList.remove('single-cell');
+        isHellMode = false;
     } else if (difficulty === 'hell') {
         rows = 1;
         cols = 1;
         mines = 1; // 1x1 的地狱模式，100% 中雷
         gameContainer.classList.add('single-cell'); // 添加 Hell 模式样式
+        isHellMode = true;
     }
 
     // 清空游戏容器和网格数据
@@ -407,7 +393,6 @@ function resetGame() {
     // 重新初始化游戏
     initGame(cellSize);
 }
-
 
 // 初始化游戏
 function initGame(cellSize) {
