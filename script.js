@@ -13,6 +13,10 @@ const LONG_PRESS_DURATION = 500; // 长按时间（毫秒）
 
 // 创建网格
 function createGrid(cellSize) {
+
+    cell.style.userSelect = 'none'; // 禁止用户选择文本
+    cell.style.webkitUserSelect = 'none'; // 兼容 Safari
+
     // 清空游戏容器和网格数据
     gameContainer.innerHTML = "";
     grid = [];
@@ -157,20 +161,25 @@ function bindCellEvents(cell) {
         event.preventDefault();
     });
 
-    // 移动端长按支持
     cell.addEventListener('touchstart', (event) => {
+        event.preventDefault(); // 阻止默认行为，防止弹出菜单
         cellLongPressTimeout = setTimeout(() => {
-            handleCellLongPress(event);
+            handleLongPress(event);
         }, LONG_PRESS_DURATION);
     });
 
     // 移动端触摸结束，清除长按检测
     cell.addEventListener('touchend', () => {
+        event.preventDefault();
         if (cellLongPressTimeout) {
             clearTimeout(cellLongPressTimeout);
             cellLongPressTimeout = null;
         }
     });
+    // 阻止 iOS 上的触摸长按菜单
+cell.addEventListener('touchmove', (event) => {
+    event.preventDefault();
+});
 }
 
 function triggerExplosion(cell) {
