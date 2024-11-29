@@ -201,7 +201,7 @@ function triggerExplosion(cell) {
     cell.textContent = "💣";
     cell.style.backgroundColor = "red";
     setTimeout(() => {
-        alert("💥 You lost! Try again!");
+        alert("💥  菜就多练！下去沉淀！");
         endGame(false);
     }, 100);
 }
@@ -246,7 +246,7 @@ function handleCellClick(event) {
         cell.style.backgroundColor = "red";
 
         setTimeout(() => {
-            alert("💥 You lost! Try again!");
+            alert("💥  菜就多练！下去沉淀！");
             endGame(false);
         }, 100);
     } else {
@@ -340,7 +340,7 @@ function checkWin() {
     }
 
     if (revealedCells === totalCells - mines) {
-        alert("🎉 Congratulations, you won!");
+        alert("🎉 呦，有东西的！刀有点快啊！");
         endGame(true);
     }
 }
